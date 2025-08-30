@@ -1,19 +1,62 @@
-name: Test Video Workflow
+name: Create Video from Image and Audio
 
 on:
   issues:
     types: [opened]
 
 jobs:
-  test:
+  create-video:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
+    - name: Checkout repository
       uses: actions/checkout@v4
       
-    - name: Test Step
+    - name: Extract and Clean URLs
+      id: extract_urls
       run: |
-        echo "🎉 Workflow is working!"
-        echo "This proves the workflow file is correct"
-        date
-        echo "If you see this, the YAML syntax is valid"
+        echo "Raw issue body:"
+        echo "${{ github.event.issue.body }}"
+        echo ""
+        
+        # Extract image URL (handles Zapier's format: "3. PhotosUrl: https://...")
+        IMAGE_URL=$(echo "${{ github.event.issue.body }}" | grep -o 'image_url:.*' | sed 's/image_url://' | grep -o 'https://[^ ]*' | head -1)
+        if [ -z "$IMAGE_URL" ]; then
+          IMAGE_URL="https://picsum.photos/1280/720"
+        fi
+        echo "Extracted image URL: $IMAGE_URL"
+        
+        # Extract audio URL (handles Zapier's format: "2. Audio File URL: https://...")  
+        AUDIO_URL=$(echo "${{ github.event.issue.body }}" | grep -o 'audio_url:.*' | sed 's/audio_url://' | grep -o 'https://[^ ]*' | head -1)
+        if [ -z "$AUDIO_URL" ]; then
+          AUDIO_URL="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+        fi
+        echo "Extracted audio URL: $AUDIO_URL"
+        
+        # Set outputs
+        echo "image_url=$IMAGE_URL" >> $GITHUB_OUTPUT
+        echo "audio_url=$AUDIO_URL" >> $GITHUB_OUTPUT
+        
+    - name: Install FFmpeg
+      run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      
+    - name: Download files
+      run: |
+        echo "Downloading image from: ${{ steps.extract_urls.outputs.image_url }}"
+        wget -q "${{ steps.extract_urls.outputs.image_url }}" -O image.jpg || wget -q "https://picsum.photos/1280/720" -O image.jpg
+        
+        echo "Downloading audio from: ${{ steps.extract_urls.outputs.audio_url }}"
+        wget -q "${{ steps.extract_urls.outputs.audio_url }}" -O audio.mp3 || wget -q "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" -O audio.mp3
+        
+    - name: Create video
+      run: |
+        ffmpeg -loop 1 -i image.jpg -i audio.mp3 \
+          -c:v libx264 -tune stillimage -c:a aac \
+          -b:a 192k -pix_fmt yuv420p -shortest \
+          -vf "scale=1280:720" \
+          -y output.mp4
+          
+    - name: Upload video
+      uses: actions/upload-artifact@v4
+      with:
+        name: video
+        path: output.mp4
