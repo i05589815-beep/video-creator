@@ -1,115 +1,19 @@
-name: 🎥 Automated Video Creator
+name: Test Video Workflow
 
 on:
   issues:
     types: [opened]
 
 jobs:
-  create-video:
+  test:
     runs-on: ubuntu-latest
     steps:
-    - name: 🔄 Checkout repository
+    - name: Checkout
       uses: actions/checkout@v4
       
-    - name: 📝 Extract URLs from issue body
-      id: extract_urls
+    - name: Test Step
       run: |
-        echo "📋 Extracting URLs from issue body..."
-        BODY="${{ github.event.issue.body }}"
-        echo "Raw issue body: $BODY"
-        
-        # Extract image URL (case insensitive)
-        IMAGE_URL=$(echo "$BODY" | grep -i 'image_url' | head -1 | cut -d: -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-        if [ -z "$IMAGE_URL" ] || [ "$IMAGE_URL" = "{{3.image_url}}" ]; then
-          echo "❌ No valid image_url found, using default image"
-          IMAGE_URL="https://picsum.photos/1280/720"
-        fi
-        echo "🖼️ Image URL: $IMAGE_URL"
-        
-        # Extract audio URL (case insensitive)
-        AUDIO_URL=$(echo "$BODY" | grep -i 'audio_url' | head -1 | cut -d: -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-        if [ -z "$AUDIO_URL" ] || [ "$AUDIO_URL" = "{{4.audio_url}}" ]; then
-          echo "❌ No valid audio_url found, using default audio"
-          AUDIO_URL="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-        fi
-        echo "🔊 Audio URL: $AUDIO_URL"
-        
-        # Set outputs for next steps
-        echo "image_url=$IMAGE_URL" >> $GITHUB_OUTPUT
-        echo "audio_url=$AUDIO_URL" >> $GITHUB_OUTPUT
-        
-    - name: ⚙️ Install FFmpeg
-      run: |
-        echo "Installing FFmpeg..."
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg
-        echo "✅ FFmpeg installed successfully"
-        ffmpeg -version
-        
-    - name: 📥 Download media files
-      run: |
-        echo "📥 Downloading files..."
-        
-        # Download image with fallback
-        echo "Downloading image from: ${{ steps.extract_urls.outputs.image_url }}"
-        if ! wget --timeout=30 -t 3 -q "${{ steps.extract_urls.outputs.image_url }}" -O image.jpg; then
-          echo "❌ Image download failed, using fallback"
-          wget -q "https://picsum.photos/1280/720" -O image.jpg
-        fi
-        
-        # Download audio with fallback
-        echo "Downloading audio from: ${{ steps.extract_urls.outputs.audio_url }}"
-        if ! wget --timeout=30 -t 3 -q "${{ steps.extract_urls.outputs.audio_url }}" -O audio.mp3; then
-          echo "❌ Audio download failed, using fallback"
-          wget -q "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" -O audio.mp3
-        fi
-        
-        echo "✅ Files downloaded successfully:"
-        ls -la
-        echo "Image file type: $(file image.jpg || echo 'unknown')"
-        echo "Audio file type: $(file audio.mp3 || echo 'unknown')"
-        
-    - name: 🎬 Create video with FFmpeg
-      run: |
-        echo "🎬 Creating video..."
-        
-        # Verify files exist
-        if [ ! -f image.jpg ]; then
-          echo "❌ Image file missing, downloading default"
-          wget -q "https://picsum.photos/1280/720" -O image.jpg
-        fi
-        
-        if [ ! -f audio.mp3 ]; then
-          echo "❌ Audio file missing, downloading default"
-          wget -q "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" -O audio.mp3
-        fi
-        
-        # Create video
-        echo "Running FFmpeg..."
-        ffmpeg -loop 1 -i image.jpg -i audio.mp3 \
-          -c:v libx264 -tune stillimage -c:a aac \
-          -b:a 192k -pix_fmt yuv420p -shortest \
-          -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2" \
-          -y output.mp4 2> ffmpeg.log
-        
-        echo "✅ FFmpeg completed"
-        echo "📊 Video file created:"
-        ls -la output.mp4
-        echo "📏 File size: $(du -h output.mp4 | cut -f1)"
-        echo "⏱️ Duration: $(ffprobe -i output.mp4 -show_entries format=duration -v quiet -of csv='p=0' 2>/dev/null | xargs printf '%.1f' || echo 'unknown') seconds"
-        
-    - name: ⬆️ Upload video artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: video
-        path: output.mp4
-        retention-days: 7
-        compression-level: 0
-        
-    - name: ✅ Completion message
-      run: |
-        echo "🎉 Video creation completed successfully!"
-        echo "📥 Download the video from the Artifacts section above"
-        echo "🔗 Issue URL: ${{ github.event.issue.html_url }}"
-        echo "👤 Created by: ${{ github.event.issue.user.login }}"
-        echo "🕒 Created at: ${{ github.event.issue.created_at }}"
+        echo "🎉 Workflow is working!"
+        echo "This proves the workflow file is correct"
+        date
+        echo "If you see this, the YAML syntax is valid"
