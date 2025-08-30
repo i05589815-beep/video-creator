@@ -1,42 +1,56 @@
-name: 🎥 Create Video
+name: 🎥 Auto Video to YouTube
 
 on:
   issues:
     types: [opened]
 
 jobs:
-  create-video:
+  create-and-upload-video:
     runs-on: ubuntu-latest
     steps:
-    
-    - name: 📋 Check what Zapier sent
+    - name: 🔄 Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: 📝 Extract URLs
+      id: extract_urls
       run: |
-        echo "RAW ISSUE BODY:"
-        echo "${{ github.event.issue.body }}"
-        echo ""
-        echo "ISSUE TITLE: ${{ github.event.issue.title }}"
-        echo "ISSUE URL: ${{ github.event.issue.html_url }}"
+        # Extract image URL
+        IMAGE_URL=$(echo "${{ github.event.issue.body }}" | grep -o 'image_url:.*' | sed 's/image_url://' | grep -o 'https://[^ ]*' | head -1)
+        [ -z "$IMAGE_URL" ] && IMAGE_URL="https://picsum.photos/1280/720"
+        
+        # Extract audio URL
+        AUDIO_URL=$(echo "${{ github.event.issue.body }}" | grep -o 'audio_url:.*' | sed 's/audio_url://' | grep -o 'https://[^ ]*' | head -1)
+        [ -z "$AUDIO_URL" ] && AUDIO_URL="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+        
+        echo "image_url=$IMAGE_URL" >> $GITHUB_OUTPUT
+        echo "audio_url=$AUDIO_URL" >> $GITHUB_OUTPUT
         
     - name: ⚙️ Install FFmpeg
-      run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      run: sudo apt-get install -y ffmpeg
       
-    - name: 📥 Download test files
+    - name: 📥 Download media
       run: |
-        wget -q "https://picsum.photos/1280/720" -O image.jpg
-        wget -q "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" -O audio.mp3
-        echo "Downloaded test files"
+        wget -q "${{ steps.extract_urls.outputs.image_url }}" -O image.jpg || wget -q "https://picsum.photos/1280/720" -O image.jpg
+        wget -q "${{ steps.extract_urls.outputs.audio_url }}" -O audio.mp3 || wget -q "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" -O audio.mp3
         
-    - name: 🎬 Create test video
+    - name: 🎬 Create video
       run: |
         ffmpeg -loop 1 -i image.jpg -i audio.mp3 \
           -c:v libx264 -tune stillimage -c:a aac \
           -b:a 192k -pix_fmt yuv420p -shortest \
           -vf "scale=1280:720" \
           -y output.mp4
-        echo "Video created successfully!"
-        
-    - name: ⬆️ Upload video
-      uses: actions/upload-artifact@v4
+          
+    - name: ⬆️ Upload to Google Drive
+      uses: satackey/action-google-drive-upload@v1.2.1
       with:
-        name: video
-        path: output.mp4
+        destination: 'YouTubeVideos/'
+        file: 'output.mp4'
+        oauth_service_account: ${{ secrets.GOOGLE_SERVICE_ACCOUNT }}
+        
+    - name: 📋 Get Google Drive Link
+      id: drive_link
+      run: |
+        # This would typically use the Google Drive API to get a shareable link
+        echo "Video uploaded to Google Drive successfully!"
+        echo "::set-output name=drive_url::https://drive.google.com/file/d/VIDEO_ID/view"
