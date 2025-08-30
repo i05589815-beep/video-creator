@@ -1,0 +1,42 @@
+name: 🎥 Create Video
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  create-video:
+    runs-on: ubuntu-latest
+    steps:
+    
+    - name: 📋 Check what Zapier sent
+      run: |
+        echo "RAW ISSUE BODY:"
+        echo "${{ github.event.issue.body }}"
+        echo ""
+        echo "ISSUE TITLE: ${{ github.event.issue.title }}"
+        echo "ISSUE URL: ${{ github.event.issue.html_url }}"
+        
+    - name: ⚙️ Install FFmpeg
+      run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      
+    - name: 📥 Download test files
+      run: |
+        wget -q "https://picsum.photos/1280/720" -O image.jpg
+        wget -q "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" -O audio.mp3
+        echo "Downloaded test files"
+        
+    - name: 🎬 Create test video
+      run: |
+        ffmpeg -loop 1 -i image.jpg -i audio.mp3 \
+          -c:v libx264 -tune stillimage -c:a aac \
+          -b:a 192k -pix_fmt yuv420p -shortest \
+          -vf "scale=1280:720" \
+          -y output.mp4
+        echo "Video created successfully!"
+        
+    - name: ⬆️ Upload video
+      uses: actions/upload-artifact@v4
+      with:
+        name: video
+        path: output.mp4
